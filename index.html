@@ -3,427 +3,1108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebTv Player - IPTV Blink Clone</title>
-    <!-- React & Tailwind CDN -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- HLS.js for IPTV Video Streaming -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <title>Sistema de Consulta e Balanço</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
+        :root {
+            --primary: #1e88e5;
+            --primary-dark: #1565c0;
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-radius: 8px;
+        }
+
         body {
-            background-color: #0f172a;
-            color: #f8fafc;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
         }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
+
+        .app-logo {
+            max-width: 180px;
+            height: auto;
+            display: block;
+            margin: 0 auto 15px auto;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #1e293b;
+
+        #auth-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #3b82f6;
-            border-radius: 3px;
+        .auth-card {
+            background: #fff;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            text-align: center;
         }
+        .auth-card input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .auth-card button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .auth-card button:hover { background: var(--primary-dark); }
+        .auth-error { color: #d32f2f; margin-top: 10px; display: none; font-size: 14px; }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        .header-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .loja-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .loja-controls input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .loja-controls .full-width {
+            grid-column: span 2;
+        }
+        .btn-action {
+            padding: 10px 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-action:hover { background: var(--primary-dark); }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .nav-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: #e0e0e0;
+            color: #555;
+            font-weight: bold;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+        }
+        .nav-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .scanner-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .reader-box { width: 100%; min-height: 200px; margin-bottom: 10px; }
+        .manual-input-box {
+            display: flex;
+            gap: 10px;
+        }
+        .manual-input-box input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .result-box {
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin-top: 15px;
+            display: none;
+        }
+        .result-box.found { background: #e8f5e9; border: 1px solid #c8e6c9; }
+        .result-box.not-found { background: #ffebee; border: 1px solid #ffcdd2; }
+        .product-title { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .product-code { font-size: 14px; color: #666; margin-bottom: 10px; }
+
+        .preco-cadastro-destaque {
+            font-size: 16px;
+            color: #333;
+            margin: 6px 0;
+        }
+        .preco-promocional-vermelho {
+            color: #d32f2f;
+            font-weight: bold;
+            font-size: 20px;
+            margin-top: 6px;
+            margin-bottom: 10px;
+        }
+
+        .status-promocao {
+            padding: 12px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        .status-promocao-em { 
+            background: #ffebee; 
+            border: 2px solid #ef5350; 
+            color: #c62828; 
+            font-size: 20px;
+        }
+        .status-promocao-fora { 
+            background: #e9ecef; 
+            border: 1px solid #ced4da; 
+            color: #495057; 
+            font-size: 15px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1.2fr 0.8fr;
+            gap: 10px;
+            margin-top: 15px;
+            align-items: end;
+        }
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            min-height: 28px;
+            display: flex;
+            align-items: flex-end;
+        }
+        .form-group input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .estoque-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .estoque-item {
+            background: rgba(255,255,255,0.6);
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .estoque-item small { display: block; color: #666; font-size: 11px; }
+
+        .btn-danger { background: #d32f2f; }
+        .btn-danger:hover { background: #b71c1c; }
+        .btn-success { background: #388e3c; }
+        .btn-success:hover { background: #2e7d32; }
+        .btn-warning { background: #f57c00; color: white; }
+        .btn-warning:hover { background: #e65100; }
+        .btn-full { width: 100%; margin-top: 10px; }
     </style>
 </head>
-<body class="h-screen overflow-hidden">
-    <div id="root"></div>
+<body>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <img src="logo.jpg" alt="Logo da Empresa" class="app-logo">
+            <h2>Acesso ao Sistema</h2>
+            <input type="text" id="input-identificador" placeholder="Usuário ou E-mail">
+            <input type="password" id="input-senha" placeholder="Senha">
+            <button id="btn-login" onclick="validarLogin()">Acessar Sistema</button>
+            <div id="auth-error" class="auth-error"></div>
+        </div>
+    </div>
 
-        function App() {
-            // Login States
-            const [loginType, setLoginType] = useState('xtream'); // 'xtream' | 'm3u'
-            const [isAuthenticated, setIsAuthenticated] = useState(false);
-            
-            // Form Data
-            const [serverUrl, setServerUrl] = useState('');
-            const [username, setUsername] = useState('');
-            const [password, setPassword] = useState('');
-            const [m3uUrl, setM3uUrl] = useState('');
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState('');
+    <div id="setup-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); display: none; align-items: center; justify-content: center; z-index: 9998;">
+        <div class="auth-card" style="max-width: 420px;">
+            <img src="logo.jpg" alt="Logo da Empresa" class="app-logo">
+            <h2>Identificação Inicial</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Preencha os campos obrigatórios abaixo para iniciar no sistema:</p>
+            <input type="number" id="setup-loja" placeholder="Número da Loja *">
+            <input type="text" id="setup-operador" placeholder="Operador *">
+            <input type="text" id="setup-lote" placeholder="Lote / Saco / Caixa *">
+            <button class="btn-action btn-success btn-full" onclick="confirmarSetupInicial()">Confirmar e Iniciar Sistema</button>
+            <div id="setup-error" class="auth-error"></div>
+        </div>
+    </div>
 
-            // App Data
-            const [channels, setChannels] = useState([]);
-            const [categories, setCategories] = useState([]);
-            const [selectedCategory, setSelectedCategory] = useState('ALL');
-            const [selectedChannel, setSelectedChannel] = useState(null);
-            const [searchTerm, setSearchTerm] = useState('');
+    <div id="main-app" class="container" style="display: none;">
+        
+        <div class="header-card">
+            <img src="logo.jpg" alt="Logo da Empresa" class="app-logo">
+            <div class="loja-controls">
+                <input type="number" id="input-loja" placeholder="Número da Loja" disabled>
+                <input type="text" id="input-operador" placeholder="Operador" disabled>
+                <input type="text" id="input-lote-geral" class="full-width" placeholder="Lote / Saco / Caixa" disabled>
+                <button class="btn-action btn-warning full-width" onclick="finalizarContagem()">🏁 Finalizar Contagem (Alterar Lote/Caixa/Saco)</button>
+                <button class="btn-action full-width" onclick="abrirEdicaoSetup()">Alterar Dados Iniciais</button>
+                <button class="btn-action btn-danger full-width" onclick="sairDoSistema()">Sair</button>
+            </div>
+            <div id="loja-atual" style="font-size: 14px; color: #555;">Nenhum dado informado.</div>
+        </div>
 
-            // Ref for Video Player
-            const videoRef = useRef(null);
-            const hlsRef = useRef(null);
+        <div class="nav-tabs">
+            <button id="btn-tab-promocao" class="nav-btn active" onclick="trocarPagina('promocao')">Consultar Promoção</button>
+            <button id="btn-tab-balanco" class="nav-btn" onclick="trocarPagina('balanco')">Balanço de Estoque</button>
+        </div>
 
-            // Handle Xtream API Login
-            const handleXtreamLogin = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError('');
+        <div id="page-promocao">
+            <div class="scanner-card">
+                <div id="reader-promocao" class="reader-box"></div>
+                <div class="manual-input-box">
+                    <input type="text" id="manual-code-promocao" placeholder="Digite ou escaneie o código">
+                    <button class="btn-action" onclick="buscarPorCodigoPromocao(document.getElementById('manual-code-promocao').value)">Buscar</button>
+                </div>
+            </div>
 
-                try {
-                    const cleanUrl = serverUrl.replace(/\/$/, "");
-                    const authUrl = `${cleanUrl}/player_api.php?username=${username}&password=${password}`;
-                    
-                    const res = await fetch(authUrl);
-                    const data = await res.json();
+            <div id="result-box-promocao" class="result-box">
+                <div id="res-conteudo-promocao"></div>
+                <div id="status-promocao"></div>
+            </div>
+        </div>
 
-                    if (data.user_info && data.user_info.auth === 1) {
-                        // Fetch Live Streams
-                        const streamsRes = await fetch(`${cleanUrl}/player_api.php?username=${username}&password=${password}&action=get_live_streams`);
-                        const streamsData = await streamsRes.json();
-                        
-                        // Fetch Categories
-                        const catsRes = await fetch(`${cleanUrl}/player_api.php?username=${username}&password=${password}&action=get_live_categories`);
-                        const catsData = await catsRes.json();
+        <div id="page-balanco" style="display: none;">
+            <div class="scanner-card">
+                <div id="reader-balanco" class="reader-box"></div>
+                <div class="manual-input-box">
+                    <input type="text" id="manual-code-balanco" placeholder="Digite ou escaneie o código">
+                    <button class="btn-action" onclick="buscarProdutoBalanco(document.getElementById('manual-code-balanco').value)">Buscar</button>
+                </div>
+            </div>
 
-                        const formattedChannels = streamsData.map(ch => ({
-                            id: ch.stream_id,
-                            name: ch.name,
-                            logo: ch.stream_icon,
-                            categoryId: ch.category_id,
-                            url: `${cleanUrl}/live/${username}/${password}/${ch.stream_id}.m3u8`
-                        }));
+            <div id="result-box-balanco" class="result-box">
+                <div id="res-conteudo-balanco"></div>
+                <button id="btn-abrir-editar" class="btn-action" style="display:none; margin-top:10px;" onclick="toggleEdicaoCadastro()">✏️ Editar Cadastro/Estoque</button>
+                
+                <div id="box-edicao-cadastro" style="display:none; flex-direction:column; gap:8px; margin-top:10px; padding:10px; background:#fff; border-radius:4px;">
+                    <h4>Editar Produto</h4>
+                    <input type="text" id="edit-descricao" placeholder="Descrição">
+                    <input type="number" step="0.01" id="edit-valor" placeholder="Valor Cadastro (Normal)">
+                    <input type="number" step="0.01" id="edit-valor-promocao" placeholder="Valor Promoção (Opcional)">
+                    <input type="number" id="edit-quantidade" placeholder="Quantidade Total em Estoque">
+                    <button class="btn-action btn-success" onclick="salvarAlteracaoCadastro()">Salvar Alterações</button>
+                </div>
+            </div>
 
-                        setChannels(formattedChannels);
-                        setCategories(catsData || []);
-                        setIsAuthenticated(true);
-                        if (formattedChannels.length > 0) {
-                            setSelectedChannel(formattedChannels[0]);
-                        }
-                    } else {
-                        setError('Usuário ou senha inválidos.');
-                    }
-                } catch (err) {
-                    setError('Falha na conexão com o servidor. Verifique a URL e CORS.');
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            // Handle M3U Login / Parsing
-            const handleM3uLogin = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError('');
-
-                try {
-                    const res = await fetch(m3uUrl);
-                    const text = await res.text();
-                    
-                    // Simple M3U Parser
-                    const lines = text.split('\n');
-                    const parsedChannels = [];
-                    let currentChannel = {};
-
-                    lines.forEach((line) => {
-                        line = line.trim();
-                        if (line.startsWith('#EXTINF:')) {
-                            const nameMatch = line.match(/,(.+)$/);
-                            const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-                            const groupMatch = line.match(/group-title="([^"]+)"/);
-
-                            currentChannel = {
-                                id: Math.random().toString(36).substr(2, 9),
-                                name: nameMatch ? nameMatch[1] : 'Canal Sem Nome',
-                                logo: logoMatch ? logoMatch[1] : '',
-                                categoryId: groupMatch ? groupMatch[1] : 'Geral'
-                            };
-                        } else if (line.startsWith('http')) {
-                            currentChannel.url = line;
-                            parsedChannels.push(currentChannel);
-                            currentChannel = {};
-                        }
-                    });
-
-                    if (parsedChannels.length > 0) {
-                        setChannels(parsedChannels);
-                        setIsAuthenticated(true);
-                        setSelectedChannel(parsedChannels[0]);
-                    } else {
-                        setError('Nenhum canal encontrado na lista M3U.');
-                    }
-                } catch (err) {
-                    setError('Erro ao carregar lista M3U. Verifique o link e permissões CORS.');
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            // HLS Stream Setup on Channel Select
-            useEffect(() => {
-                if (selectedChannel && videoRef.current) {
-                    const video = videoRef.current;
-                    const streamUrl = selectedChannel.url;
-
-                    if (hlsRef.current) {
-                        hlsRef.current.destroy();
-                    }
-
-                    if (Hls.isSupported()) {
-                        const hls = new Hls();
-                        hls.loadSource(streamUrl);
-                        hls.attachMedia(video);
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                            video.play().catch(() => {});
-                        });
-                        hlsRef.current = hls;
-                    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                        video.src = streamUrl;
-                        video.addEventListener('loadedmetadata', () => {
-                            video.play().catch(() => {});
-                        });
-                    }
-                }
-            }, [selectedChannel]);
-
-            // Filter Channels
-            const filteredChannels = channels.filter(ch => {
-                const matchesCategory = selectedCategory === 'ALL' || ch.categoryId === selectedCategory;
-                const matchesSearch = ch.name.toLowerCase().includes(searchTerm.toLowerCase());
-                return matchesCategory && matchesSearch;
-            });
-
-            if (!isAuthenticated) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
-                        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
-                            <div className="text-center mb-8">
-                                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-500/30">
-                                    <span className="text-2xl font-bold text-white">BLINK</span>
-                                </div>
-                                <h1 className="text-2xl font-bold text-white">WebTV Player</h1>
-                                <p className="text-slate-400 text-sm mt-1">Conecte-se à sua playlist IPTV</p>
-                            </div>
-
-                            {/* Login Type Tabs */}
-                            <div className="flex bg-slate-800 p-1 rounded-xl mb-6">
-                                <button
-                                    onClick={() => setLoginType('xtream')}
-                                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                                        loginType === 'xtream' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                                    }`}
-                                >
-                                    Xtream Codes API
-                                </button>
-                                <button
-                                    onClick={() => setLoginType('m3u')}
-                                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                                        loginType === 'm3u' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
-                                    }`}
-                                >
-                                    Lista M3U URL
-                                </button>
-                            </div>
-
-                            {error && (
-                                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg text-center">
-                                    {error}
-                                </div>
-                            )}
-
-                            {loginType === 'xtream' ? (
-                                <form onSubmit={handleXtreamLogin} className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">URL do Servidor</label>
-                                        <input
-                                            type="url"
-                                            placeholder="http://seu-provedor.com:8080"
-                                            value={serverUrl}
-                                            onChange={(e) => setServerUrl(e.target.value)}
-                                            required
-                                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Usuário</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Usuário"
-                                            value={username}
-                                            onChange={(e) => setUsername(e.target.value)}
-                                            required
-                                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Senha</label>
-                                        <input
-                                            type="password"
-                                            placeholder="Senha"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            required
-                                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50"
-                                    >
-                                        {loading ? 'Carregando...' : 'Entrar'}
-                                    </button>
-                                </form>
-                            ) : (
-                                <form onSubmit={handleM3uLogin} className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">URL da Lista M3U</label>
-                                        <input
-                                            type="url"
-                                            placeholder="https://exemplo.com/lista.m3u"
-                                            value={m3uUrl}
-                                            onChange={(e) => setM3uUrl(e.target.value)}
-                                            required
-                                            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50"
-                                    >
-                                        {loading ? 'Carregando...' : 'Carregar Playlist'}
-                                    </button>
-                                </form>
-                            )}
-
-                            <div className="mt-8 text-center border-t border-slate-800 pt-4">
-                                <p className="text-xs text-slate-500">Desenvolvido com JS / React Client-Side</p>
-                            </div>
-                        </div>
+            <div id="form-registro-balanco" class="scanner-card" style="display: none; flex-direction: column;">
+                <h3>Registrar Entrada no Balanço</h3>
+                
+                <div id="box-campos-manual" style="display: none;">
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label>Descrição do Produto *</label>
+                        <input type="text" id="bal-descricao-manual">
                     </div>
-                );
-            }
-
-            return (
-                <div className="flex h-screen bg-slate-950 text-slate-100">
-                    {/* Left Sidebar: Categories & Search */}
-                    <div className="w-80 bg-slate-900 border-r border-slate-800 flex flex-col">
-                        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-xs">
-                                    BLINK
-                                </div>
-                                <span className="font-bold text-lg">WebTV</span>
-                            </div>
-                            <button 
-                                onClick={() => setIsAuthenticated(false)}
-                                className="text-xs text-slate-400 hover:text-red-400 transition-colors"
-                            >
-                                Sair
-                            </button>
-                        </div>
-
-                        {/* Search Bar */}
-                        <div className="p-4">
-                            <input
-                                type="text"
-                                placeholder="Buscar canal..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                            />
-                        </div>
-
-                        {/* Categories List */}
-                        {categories.length > 0 && (
-                            <div className="px-4 pb-2">
-                                <select 
-                                    value={selectedCategory} 
-                                    onChange={(e) => setSelectedCategory(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
-                                >
-                                    <option value="ALL">Todas as Categorias</option>
-                                    {categories.map(cat => (
-                                        <option key={cat.category_id} value={cat.category_id}>
-                                            {cat.category_name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-
-                        {/* Channels List */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-                            {filteredChannels.map((channel) => (
-                                <button
-                                    key={channel.id}
-                                    onClick={() => setSelectedChannel(channel)}
-                                    className={`w-full flex items-center space-x-3 p-2 rounded-lg transition-all text-left ${
-                                        selectedChannel?.id === channel.id
-                                            ? 'bg-blue-600/20 border border-blue-500/50 text-white'
-                                            : 'hover:bg-slate-800/60 text-slate-300'
-                                    }`}
-                                >
-                                    {channel.logo ? (
-                                        <img 
-                                            src={channel.logo} 
-                                            alt="" 
-                                            className="w-10 h-10 object-contain rounded bg-slate-950 p-1"
-                                            onError={(e) => { e.target.style.display = 'none'; }} 
-                                        />
-                                    ) : (
-                                        <div className="w-10 h-10 bg-slate-800 rounded flex items-center justify-center text-xs font-bold text-slate-500">
-                                            TV
-                                        </div>
-                                    )}
-                                    <span className="text-sm font-medium truncate flex-1">{channel.name}</span>
-                                </button>
-                            ))}
-
-                            {filteredChannels.length === 0 && (
-                                <div className="text-center text-slate-500 text-sm py-8">
-                                    Nenhum canal encontrado
-                                </div>
-                            )}
-                        </div>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label>Valor Cadastro (R$) *</label>
+                        <input type="number" step="0.01" id="bal-valor-manual">
                     </div>
-
-                    {/* Main Content Area: Video Player & Controls */}
-                    <div className="flex-1 flex flex-col bg-slate-950">
-                        {/* Video Player */}
-                        <div className="flex-1 bg-black relative flex items-center justify-center">
-                            {selectedChannel ? (
-                                <video
-                                    ref={videoRef}
-                                    controls
-                                    className="w-full h-full max-h-screen object-contain"
-                                    autoPlay
-                                ></video>
-                            ) : (
-                                <div className="text-slate-500 text-center">
-                                    <p className="text-lg">Selecione um canal para assistir</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Channel Header Bar */}
-                        {selectedChannel && (
-                            <div className="bg-slate-900 border-t border-slate-800 p-4 flex items-center justify-between">
-                                <div className="flex items-center space-x-4">
-                                    {selectedChannel.logo && (
-                                        <img src={selectedChannel.logo} className="w-12 h-12 object-contain bg-slate-950 p-1 rounded" />
-                                    )}
-                                    <div>
-                                        <h2 className="text-lg font-bold text-white">{selectedChannel.name}</h2>
-                                        <p className="text-xs text-slate-400">Ao Vivo • HLS Stream</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label>Valor Promoção (R$) - Opcional</label>
+                        <input type="number" step="0.01" id="bal-valor-promocao-manual">
                     </div>
                 </div>
-            );
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Tamanho</label>
+                        <input type="text" id="bal-tamanho" placeholder="Ex: G, 42">
+                    </div>
+                    <div class="form-group">
+                        <label>Bloco</label>
+                        <input type="text" id="bal-bloco" placeholder="Opcional">
+                    </div>
+                    <div class="form-group">
+                        <label>Linha</label>
+                        <input type="text" id="bal-linha" placeholder="Opcional">
+                    </div>
+                    <div class="form-group">
+                        <label>Caixa / Saco (Automático)</label>
+                        <input type="text" id="bal-caixa-saco" readonly style="background-color: #e9ecef; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantidade *</label>
+                        <input type="number" id="bal-quantidade" value="1" min="1">
+                    </div>
+                </div>
+
+                <button id="btn-submit-balanco" class="btn-action btn-success btn-full" onclick="enviarParaBalancoEstoque()">Enviar para Balanço de Estoque</button>
+            </div>
+
+            <button class="btn-action btn-full" style="margin-top: 15px;" onclick="exportarBalancoExcel()">📊 Exportar Balanço da Loja (Excel)</button>
+        </div>
+
+    </div>
+
+    <script>
+    const SUPABASE_URL_1 = 'https://sglmlcwzzjlrqthkmovq.supabase.co';
+    const SUPABASE_KEY_1 = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnbG1sY3d6empscnF0aGttb3ZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3NTU0MzEsImV4cCI6MjEwMTMzMTQzMX0.YtxgLeWrflL8EW7ye6ou0-ZyOpHAjud0z4XH7CYPS4w';
+    const supabasePromocoes = supabase.createClient(SUPABASE_URL_1, SUPABASE_KEY_1);
+
+    const SUPABASE_URL_2 = 'https://lqoqvbtvmzivmsugyzxz.supabase.co';
+    const SUPABASE_KEY_2 = 'sb_publishable_kyXiNrX0IOMAF6ozR2FuxA_hMQVhhov';
+    const supabaseBalanco = supabase.createClient(SUPABASE_URL_2, SUPABASE_KEY_2);
+
+    const SUPABASE_URL_3 = 'https://lqoqvbtvmzivmsugyzxz.supabase.co';
+    const SUPABASE_KEY_3 = 'sb_publishable_kyXiNrX0IOMAF6ozR2FuxA_hMQVhhov';
+    const supabaseConsultaPromocoes = (SUPABASE_URL_3 && !SUPABASE_URL_3.includes('INSIRA_AQUI')) 
+        ? supabase.createClient(SUPABASE_URL_3, SUPABASE_KEY_3) 
+        : null;
+
+    let scannerPromocao = null, scannerBalanco = null;
+    let produtoBalancoEncontrado = null, quantidadeEstoqueAtual = 0;
+    let processandoLeituraPromocao = false, processandoLeituraBalanco = false;
+    let lojaSelecionada = null;
+    let operadorSelecionado = null;
+    let loteSacoCaixaSelecionado = null;
+
+    function normalizarCodigo(str) {
+        if (!str) return '';
+        return String(str).trim();
+    }
+    function escaparHTML(v) {
+        return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function numero(v) {
+        if (v === null || v === undefined || v === '') return 0;
+        if (typeof v === 'number') return isFinite(v) ? v : 0;
+        let s = String(v).trim().replace(/R\$\s?/gi, '').replace(/\s/g, '');
+        if (s.includes(',') && s.includes('.')) {
+            s = s.replace(/\./g, '').replace(',', '.');
+        } else if (s.includes(',')) {
+            s = s.replace(',', '.');
+        }
+        const n = Number(s);
+        return isNaN(n) ? 0 : n;
+    }
+    function moeda(v) {
+        const n = numero(v);
+        return isNaN(n) || n === 0 ? 'R$ 0,00' : n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    }
+    function tocarBip() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination); osc.frequency.value=1000;
+            gain.gain.setValueAtTime(.1,ctx.currentTime); osc.start(); osc.stop(ctx.currentTime+.1);
+        } catch(e) {}
+    }
+
+    function exigirLoja() {
+        if (!lojaSelecionada || !operadorSelecionado || !loteSacoCaixaSelecionado) {
+            alert('⚠️ Informe e confirme o Número da Loja, o Operador e o Lote/Saco/Caixa antes de prosseguir.');
+            abrirEdicaoSetup();
+            return false;
+        }
+        return true;
+    }
+
+    function abrirEdicaoSetup() {
+        document.getElementById('setup-loja').value = lojaSelecionada || '';
+        document.getElementById('setup-operador').value = operadorSelecionado || '';
+        document.getElementById('setup-lote').value = loteSacoCaixaSelecionado || '';
+        document.getElementById('setup-error').style.display = 'none';
+        document.getElementById('setup-overlay').style.display = 'flex';
+    }
+
+    function finalizarContagem() {
+        if (scannerPromocao) { try { scannerPromocao.clear(); } catch(e){} scannerPromocao = null; }
+        if (scannerBalanco) { try { scannerBalanco.clear(); } catch(e){} scannerBalanco = null; }
+        
+        document.getElementById('main-app').style.display = 'none';
+        
+        document.getElementById('setup-loja').value = lojaSelecionada || '';
+        document.getElementById('setup-operador').value = operadorSelecionado || '';
+        document.getElementById('setup-lote').value = ''; // Limpa o lote para o usuário digitar o novo
+        document.getElementById('setup-error').style.display = 'none';
+        document.getElementById('setup-overlay').style.display = 'flex';
+    }
+
+    function confirmarSetupInicial() {
+        const lojaVal = document.getElementById('setup-loja').value.trim();
+        const operadorVal = document.getElementById('setup-operador').value.trim();
+        const loteVal = document.getElementById('setup-lote').value.trim();
+        const setupError = document.getElementById('setup-error');
+
+        setupError.style.display = 'none';
+
+        if (!lojaVal || !operadorVal || !loteVal) {
+            setupError.innerText = '⚠️ Todos os 3 campos (Loja, Operador e Lote/Saco/Caixa) são obrigatórios!';
+            setupError.style.display = 'block';
+            return;
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        lojaSelecionada = lojaVal;
+        operadorSelecionado = operadorVal;
+        loteSacoCaixaSelecionado = loteVal;
+
+        document.getElementById('setup-overlay').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        
+        atualizarLojaUI();
+
+        const pagPromocao = document.getElementById('page-promocao');
+        const pagPromocaoVisivel = pagPromocao && pagPromocao.style.display !== 'none';
+
+        setTimeout(() => {
+            if (pagPromocaoVisivel) {
+                iniciarScannerPromocao();
+            } else {
+                iniciarScannerBalanco();
+            }
+        }, 100);
+    }
+
+    function atualizarLojaUI() {
+        const inputLoja = document.getElementById('input-loja');
+        const inputOperador = document.getElementById('input-operador');
+        const inputLoteGeral = document.getElementById('input-lote-geral');
+        const elemLojaAtual = document.getElementById('loja-atual');
+
+        if (inputLoja) inputLoja.value = lojaSelecionada || '';
+        if (inputOperador) inputOperador.value = operadorSelecionado || '';
+        if (inputLoteGeral) inputLoteGeral.value = loteSacoCaixaSelecionado || '';
+
+        if (elemLojaAtual) {
+            elemLojaAtual.innerHTML = lojaSelecionada
+              ? `🏪 Loja: <strong>${escaparHTML(lojaSelecionada)}</strong> | 👤 Operador: <strong>${escaparHTML(operadorSelecionado)}</strong> | 📦 Lote/Saco/Caixa: <strong>${escaparHTML(loteSacoCaixaSelecionado)}</strong>`
+              : 'Nenhum dado informado.';
+        }
+    }
+
+    async function trocarPagina(aba) {
+        if (!exigirLoja()) return;
+        
+        if (scannerPromocao) { try { await scannerPromocao.clear(); } catch(e){} scannerPromocao = null; }
+        if (scannerBalanco) { try { await scannerBalanco.clear(); } catch(e){} scannerBalanco = null; }
+        
+        processandoLeituraPromocao = false; 
+        processandoLeituraBalanco = false;
+
+        document.getElementById('page-promocao').style.display = aba === 'promocao' ? 'block' : 'none';
+        document.getElementById('page-balanco').style.display = aba === 'balanco' ? 'block' : 'none';
+        document.getElementById('btn-tab-promocao').className = aba === 'promocao' ? 'nav-btn active' : 'nav-btn';
+        document.getElementById('btn-tab-balanco').className = aba === 'balanco' ? 'nav-btn active' : 'nav-btn';
+        
+        setTimeout(() => aba === 'promocao' ? iniciarScannerPromocao() : iniciarScannerBalanco(), 100);
+    }
+
+    function iniciarScannerPromocao() {
+        if (!lojaSelecionada) return;
+        if (scannerPromocao) { try { scannerPromocao.clear(); } catch(e) {} scannerPromocao = null; }
+
+        try {
+            scannerPromocao = new Html5QrcodeScanner('reader-promocao', { fps: 15, qrbox: { width: 280, height: 120 } }, false);
+            scannerPromocao.render(decodedText => {
+                if (processandoLeituraPromocao) return;
+                processandoLeituraPromocao = true;
+                const codigoTratado = normalizarCodigo(decodedText);
+                const inputManual = document.getElementById('manual-code-promocao');
+                if (inputManual) inputManual.value = codigoTratado;
+                buscarPorCodigoPromocao(codigoTratado);
+            });
+        } catch (err) {
+            console.error("Erro no scanner de promoção:", err);
+        }
+    }
+
+    function iniciarScannerBalanco() {
+        if (!lojaSelecionada) return;
+        if (scannerBalanco) { try { scannerBalanco.clear(); } catch(e) {} scannerBalanco = null; }
+
+        try {
+            scannerBalanco = new Html5QrcodeScanner('reader-balanco', { fps: 15, qrbox: { width: 280, height: 120 } }, false);
+            scannerBalanco.render(decodedText => {
+                if (processandoLeituraBalanco) return;
+                processandoLeituraBalanco = true;
+                const codigoTratado = normalizarCodigo(decodedText);
+                const inputManual = document.getElementById('manual-code-balanco');
+                if (inputManual) inputManual.value = codigoTratado;
+                buscarProdutoBalanco(codigoTratado);
+            });
+        } catch (err) {
+            console.error("Erro no scanner de balanço:", err);
+        }
+    }
+
+    async function validarLogin() {
+        const identificador = document.getElementById('input-identificador').value.trim();
+        const senha = document.getElementById('input-senha').value.trim();
+        const authError = document.getElementById('auth-error'), btn = document.getElementById('btn-login');
+        authError.style.display = 'none';
+        
+        if (!identificador || !senha) {
+            authError.innerText = '⚠️ Preencha o usuário/e-mail e a senha!';
+            authError.style.display = 'block';
+            return;
+        }
+        
+        btn.disabled = true; btn.innerText = 'Verificando...';
+        try {
+            let { data, error } = await supabasePromocoes.from('usuarios').select('*').eq('usuario', identificador).eq('senha', senha).maybeSingle();
+            if (!data && !error) {
+                const r = await supabasePromocoes.from('usuarios').select('*').eq('e-mail', identificador).eq('senha', senha).maybeSingle();
+                data = r.data; error = r.error;
+            }
+            if (error) throw error;
+            if (!data) {
+                authError.innerText = '❌ Usuário, e-mail ou senha incorretos.';
+                authError.style.display = 'block';
+            } else if (data.situacao_acesso && String(data.situacao_acesso).toLowerCase() === 'off') {
+                authError.innerText = '🚫 Acesso suspenso ou inativo.';
+                authError.style.display = 'block';
+            } else {
+                document.getElementById('auth-overlay').style.display = 'none';
+                abrirEdicaoSetup();
+            }
+        } catch (err) {
+            console.error(err);
+            authError.innerText = '❌ Erro de conexão com o banco de dados.';
+            authError.style.display = 'block';
+        } finally {
+            btn.disabled = false; btn.innerText = 'Acessar Sistema';
+        }
+    }
+
+    async function verificarPromocao(codigo) {
+        if (!lojaSelecionada) return { emPromocao: false, valorPromocao: null };
+        const codStr = normalizarCodigo(codigo);
+        const lojaStr = String(lojaSelecionada).trim();
+
+        if (!codStr) return { emPromocao: false, valorPromocao: null };
+
+        if (supabaseConsultaPromocoes) {
+            try {
+                const { data, error } = await supabaseConsultaPromocoes
+                    .from('promocoes')
+                    .select('*')
+                    .eq('codigo', codStr)
+                    .eq('loja', lojaStr);
+
+                if (!error && data && data.length > 0) {
+                    const item = data[0];
+                    const valPromo = item.valor_promocao ?? item.valor_promocional ?? item.preco_promocao ?? item.valor ?? null;
+                    if (valPromo !== null && numero(valPromo) > 0) {
+                        return { emPromocao: true, valorPromocao: valPromo, itemPromocao: item };
+                    }
+                }
+            } catch (e) {
+                console.error("Erro ao buscar promoção na base SUPABASE_3:", e);
+            }
+        }
+
+        try {
+            const { data, error } = await supabasePromocoes
+                .from('promocoes')
+                .select('*')
+                .eq('codigo', codStr)
+                .eq('loja', lojaStr);
+
+            if (!error && data && data.length > 0) {
+                const item = data[0];
+                const valPromo = item.valor_promocao ?? item.valor_promocional ?? item.preco_promocao ?? item.valor ?? null;
+                if (valPromo !== null && numero(valPromo) > 0) {
+                    return { emPromocao: true, valorPromocao: valPromo, itemPromocao: item };
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao verificar promoção na base fallback:", e);
+        }
+
+        return { emPromocao: false, valorPromocao: null };
+    }
+
+    async function buscarProdutoCompleto(codigo) {
+        if (!lojaSelecionada) throw new Error('Informe o número da loja antes de pesquisar.');
+        
+        const codStr = normalizarCodigo(codigo);
+        const lojaStr = String(lojaSelecionada).trim();
+
+        if (!codStr) return { cadastro: null, estoque: [] };
+
+        let { data: cadastro, error: erroCadastro } = await supabaseBalanco
+            .from('balanco_cadastro')
+            .select('*')
+            .eq('codigo', codStr)
+            .eq('loja', lojaStr)
+            .maybeSingle();
+
+        if (erroCadastro) console.error("Erro ao buscar cadastro:", erroCadastro);
+
+        const { data: estoque, error: erroEstoque } = await supabaseBalanco
+            .from('balanco_estoque')
+            .select('*')
+            .eq('codigo', codStr)
+            .eq('loja', lojaStr);
+
+        if (erroEstoque) console.error("Erro ao buscar estoque:", erroEstoque);
+
+        const promoInfo = await verificarPromocao(codStr);
+
+        if (cadastro) {
+            if (promoInfo.emPromocao && promoInfo.valorPromocao) {
+                cadastro.valor_promocao = promoInfo.valorPromocao;
+            }
+        } else if (promoInfo.emPromocao && promoInfo.itemPromocao) {
+            cadastro = {
+                codigo: codStr,
+                descricao: promoInfo.itemPromocao.descricao || 'Produto em Promoção',
+                valor: promoInfo.itemPromocao.valor_cadastro || promoInfo.itemPromocao.valor_normal || null,
+                valor_promocao: promoInfo.valorPromocao,
+                loja: lojaStr
+            };
+        }
+
+        return { cadastro, estoque: estoque || [], promocao: promoInfo };
+    }
+
+    function htmlCadastroProduto(cadastro) {
+        const valorNormal = cadastro ? cadastro.valor : null;
+        const valorPromo = cadastro ? cadastro.valor_promocao : null;
+
+        let precoHtml = `
+            <div class="preco-cadastro-destaque">
+                💰 Preço Cadastro: <strong>${moeda(valorNormal)}</strong>
+            </div>`;
+
+        if (valorPromo !== null && valorPromo !== undefined && valorPromo !== '' && numero(valorPromo) > 0) {
+            precoHtml += `
+                <div class="preco-promocional-vermelho">
+                    🏷️ Preço Promoção: ${moeda(valorPromo)}
+                </div>`;
+        }
+
+        return `
+            <div class="product-title">${escaparHTML(cadastro.descricao)}</div>
+            <div class="product-code">
+                Código: ${escaparHTML(cadastro.codigo)} | Loja: ${escaparHTML(lojaSelecionada)}
+            </div>
+            ${precoHtml}`;
+    }
+
+    function obterValorCampo(obj, nomes) {
+        const chaves = Object.keys(obj || {});
+        const normalizadas = nomes.map(n => String(n).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, ''));
+        const chave = chaves.find(k => {
+            const nk = String(k).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+            return normalizadas.includes(nk);
+        });
+        return chave ? obj[chave] : '';
+    }
+
+    function agruparQuantidade(rows, campo) {
+        const mapa = new Map();
+        rows.forEach(row => {
+            let chave = String(obterValorCampo(row, campo) ?? '').trim();
+            if (!chave) chave = 'Não informado';
+            const qtd = Number(obterValorCampo(row, ['quantidade', 'qtd']) || 0);
+            mapa.set(chave, (mapa.get(chave) || 0) + (isNaN(qtd) ? 0 : qtd));
+        });
+        return mapa;
+    }
+
+    function textoAgrupado(mapa) {
+        if (!mapa || mapa.size === 0) return 'Não informado';
+        return Array.from(mapa.entries()).map(([chave, qtd]) => `${chave}: ${qtd}`).join(' | ');
+    }
+
+    function resumoEstoqueHTML(rows) {
+        const estoque = rows || [];
+        const total = estoque.reduce((s, r) => s + (Number(obterValorCampo(r, ['quantidade', 'qtd'])) || 0), 0);
+
+        const porBloco = agruparQuantidade(estoque, ['bloco']);
+        const porLinha = agruparQuantidade(estoque, ['linha']);
+        const porCaixa = agruparQuantidade(estoque, ['caixa_saco', 'caixa', 'saco']);
+
+        return `
+            <div class="estoque-grid">
+                <div class="estoque-item"><small>Quantidade total</small><strong>${total}</strong></div>
+                <div class="estoque-item"><small>Total por bloco</small><strong>${textoAgrupado(porBloco)}</strong></div>
+                <div class="estoque-item"><small>Total por linha</small><strong>${textoAgrupado(porLinha)}</strong></div>
+                <div class="estoque-item"><small>Total por caixa/saco</small><strong>${textoAgrupado(porCaixa)}</strong></div>
+            </div>`;
+    }
+
+    function exibirStatusPromocao(resultadoPromo) {
+        const box = document.getElementById('status-promocao');
+        if (!box) return;
+
+        if (resultadoPromo && resultadoPromo.emPromocao && numero(resultadoPromo.valorPromocao) > 0) {
+            box.className = 'status-promocao status-promocao-em';
+            box.innerHTML = `🔥 Preço Promoção: <strong>${moeda(resultadoPromo.valorPromocao)}</strong>`;
+        } else {
+            box.className = 'status-promocao status-promocao-fora';
+            box.innerHTML = '⚪ ESTE PRODUTO NÃO ESTÁ EM PROMOÇÃO.';
+        }
+    }
+
+    async function buscarPorCodigoPromocao(codigoEscaneado) {
+        if (!exigirLoja()) { processandoLeituraPromocao = false; return; }
+        if (!codigoEscaneado) { processandoLeituraPromocao = false; return; }
+
+        const codigoTratado = normalizarCodigo(codigoEscaneado);
+        document.getElementById('manual-code-promocao').value = codigoTratado;
+
+        tocarBip();
+
+        const resultBox = document.getElementById('result-box-promocao');
+        const res = document.getElementById('res-conteudo-promocao');
+        resultBox.style.display = 'block';
+        
+        const statusPromocao = document.getElementById('status-promocao');
+        if (statusPromocao) { statusPromocao.className = ''; statusPromocao.innerHTML = ''; }
+        res.innerHTML = '<div class="product-title">🔎 Consultando cadastro e promoção...</div>';
+
+        try {
+            const resultado = await buscarProdutoCompleto(codigoTratado);
+
+            if (!resultado.cadastro) {
+                resultBox.className = 'result-box not-found';
+                res.innerHTML = `
+                    <div class="product-title" style="color:#c62828;">Produto não encontrado</div>
+                    <div class="product-code">
+                        O código <strong>${escaparHTML(codigoTratado)}</strong> não possui cadastro na loja <strong>${escaparHTML(lojaSelecionada)}</strong>.
+                    </div>`;
+            } else {
+                resultBox.className = 'result-box found';
+                res.innerHTML = htmlCadastroProduto(resultado.cadastro) + 
+                    (resultado.estoque.length > 0 ? resumoEstoqueHTML(resultado.estoque) : '');
+            }
+            
+            exibirStatusPromocao(resultado.promocao);
+        } catch (err) {
+            console.error('Erro na consulta do produto:', err);
+            resultBox.className = 'result-box not-found';
+            res.innerHTML = `<div class="product-title" style="color:#c62828;">Erro na consulta</div><div class="product-code">${escaparHTML(err.message)}</div>`;
+        } finally {
+            setTimeout(() => processandoLeituraPromocao = false, 500);
+        }
+    }
+
+    async function buscarProdutoBalanco(codigo) {
+        if (!exigirLoja()) { processandoLeituraBalanco = false; return; }
+        if (!codigo) { processandoLeituraBalanco = false; return; }
+
+        const codigoTratado = normalizarCodigo(codigo);
+        document.getElementById('manual-code-balanco').value = codigoTratado;
+
+        tocarBip();
+        if (scannerBalanco) { try { scannerBalanco.pause(true); } catch(e){} }
+
+        const resultBox = document.getElementById('result-box-balanco');
+        const res = document.getElementById('res-conteudo-balanco');
+        const form = document.getElementById('form-registro-balanco');
+        const manual = document.getElementById('box-campos-manual');
+        const editBtn = document.getElementById('btn-abrir-editar');
+        const editBox = document.getElementById('box-edicao-cadastro');
+
+        resultBox.style.display = 'none';
+        form.style.display = 'none';
+        manual.style.display = 'none';
+        editBtn.style.display = 'none';
+        editBox.style.display = 'none';
+
+        document.getElementById('bal-tamanho').value = '';
+        document.getElementById('bal-bloco').value = '';
+        document.getElementById('bal-linha').value = '';
+        document.getElementById('bal-caixa-saco').value = loteSacoCaixaSelecionado || '';
+        document.getElementById('bal-quantidade').value = 1;
+        document.getElementById('bal-descricao-manual').value = '';
+        document.getElementById('bal-valor-manual').value = '';
+        document.getElementById('bal-valor-promocao-manual').value = '';
+
+        try {
+            const resultado = await buscarProdutoCompleto(codigoTratado);
+            const data = resultado.cadastro;
+            const estoque = resultado.estoque;
+
+            resultBox.style.display = 'block';
+
+            if (data) {
+                produtoBalancoEncontrado = data;
+                quantidadeEstoqueAtual = estoque.reduce((acc, curr) => acc + (Number(obterValorCampo(curr, ['quantidade', 'qtd'])) || 0), 0);
+
+                resultBox.className = 'result-box found';
+                res.innerHTML = htmlCadastroProduto(data) + resumoEstoqueHTML(estoque);
+
+                document.getElementById('btn-submit-balanco').innerText = 'Enviar para Balanço de Estoque';
+                editBtn.style.display = 'block';
+
+                document.getElementById('edit-descricao').value = data.descricao || '';
+                document.getElementById('edit-valor').value = data.valor || '';
+                document.getElementById('edit-valor-promocao').value = data.valor_promocao || '';
+                document.getElementById('edit-quantidade').value = quantidadeEstoqueAtual;
+            } else {
+                produtoBalancoEncontrado = null;
+                quantidadeEstoqueAtual = 0;
+
+                resultBox.className = 'result-box not-found';
+                res.innerHTML = `
+                    <div class="product-title" style="color:#c62828;">PRODUTO NÃO CADASTRADO NESTA LOJA</div>
+                    <div class="product-code">
+                        Código: <strong>${escaparHTML(codigoTratado)}</strong><br>
+                        Loja selecionada: <strong>${escaparHTML(lojaSelecionada)}</strong>.
+                        Preencha as informações do produto abaixo.
+                    </div>`;
+
+                manual.style.display = 'block';
+                document.getElementById('btn-submit-balanco').innerText = 'ENVIAR PARA CADASTRO E BALANÇO';
+            }
+
+            form.style.display = 'flex';
+        } catch (err) {
+            console.error('Erro na consulta do produto:', err);
+            resultBox.style.display = 'block';
+            resultBox.className = 'result-box not-found';
+            res.innerHTML = `<div class="product-title" style="color:#c62828;">Erro na consulta</div><div class="product-code">${escaparHTML(err.message)}</div>`;
+        } finally {
+            processandoLeituraBalanco = false;
+        }
+    }
+
+    function toggleEdicaoCadastro() {
+        const b = document.getElementById('box-edicao-cadastro');
+        b.style.display = (b.style.display === 'flex' || b.style.display === 'block') ? 'none' : 'flex';
+    }
+
+    async function salvarAlteracaoCadastro() {
+        if (!exigirLoja()) return;
+        const codigoInput = document.getElementById('manual-code-balanco').value.trim();
+        const codigo = normalizarCodigo(codigoInput);
+        const desc = document.getElementById('edit-descricao').value.trim();
+        const valor = parseFloat(document.getElementById('edit-valor').value);
+        const valorPromoInput = parseFloat(document.getElementById('edit-valor-promocao').value);
+        const valorPromo = !isNaN(valorPromoInput) ? valorPromoInput : null;
+        const qtd = parseInt(document.getElementById('edit-quantidade').value);
+        
+        if (!codigo || !desc || isNaN(valor) || valor <= 0) {
+            alert('⚠️ Informe código, descrição e valor válidos.');
+            return;
+        }
+        
+        const codigoStr = String(produtoBalancoEncontrado ? produtoBalancoEncontrado.codigo : codigo).trim();
+        const lojaStr = String(lojaSelecionada).trim();
+        
+        try {
+            const { error: e } = await supabaseBalanco.from('balanco_cadastro').update({ 
+                descricao: desc, 
+                valor: valor,
+                valor_promocao: valorPromo 
+            }).eq('codigo', codigoStr).eq('loja', lojaStr);
+            
+            if (e) throw e;
+            
+            if (!isNaN(qtd) && qtd >= 0) {
+                const { data: rows, error: er } = await supabaseBalanco.from('balanco_estoque').select('id').eq('codigo', codigoStr).eq('loja', lojaStr);
+                if (er) throw er;
+                if (rows && rows.length) {
+                    await supabaseBalanco.from('balanco_estoque').update({ quantidade: qtd, descricao: desc, valor: valor, valor_promocao: valorPromo }).eq('id', rows[0].id);
+                    for (let i = 1; i < rows.length; i++) await supabaseBalanco.from('balanco_estoque').update({ quantidade: 0 }).eq('id', rows[i].id);
+                } else {
+                    await supabaseBalanco.from('balanco_estoque').insert([{ codigo: codigoStr, loja: lojaStr, descricao: desc, tamanho: '', quantidade: qtd, valor: valor, valor_promocao: valorPromo }]);
+                }
+            }
+            alert('✅ Cadastro e estoque atualizados com sucesso!');
+            buscarProdutoBalanco(codigo);
+        } catch (err) {
+            console.error(err);
+            alert('❌ Falha ao alterar cadastro: ' + err.message);
+        }
+    }
+
+    async function enviarParaBalancoEstoque() {
+        if (!exigirLoja()) return;
+        const codigoInput = document.getElementById('manual-code-balanco').value.trim();
+        const codigoFormatado = normalizarCodigo(codigoInput);
+        const tamanho = document.getElementById('bal-tamanho').value.trim();
+        const bloco = document.getElementById('bal-bloco').value.trim();
+        const linha = document.getElementById('bal-linha').value.trim();
+        const caixaSaco = loteSacoCaixaSelecionado; 
+        const operador = operadorSelecionado; 
+        const quantidade = parseInt(document.getElementById('bal-quantidade').value) || 1;
+
+        if (!codigoFormatado) { alert('⚠️ Código do produto inválido!'); return; }
+        const codigoStr = String(produtoBalancoEncontrado ? produtoBalancoEncontrado.codigo : codigoFormatado).trim();
+        const lojaStr = String(lojaSelecionada).trim();
+        
+        let descricao = '', valor = 0, valorPromocao = null;
+        if (produtoBalancoEncontrado) {
+            descricao = produtoBalancoEncontrado.descricao;
+            valor = produtoBalancoEncontrado.valor || 0;
+            valorPromocao = produtoBalancoEncontrado.valor_promocao ?? null;
+        } else {
+            descricao = document.getElementById('bal-descricao-manual').value.trim();
+            valor = parseFloat(document.getElementById('bal-valor-manual').value);
+            const vpInput = parseFloat(document.getElementById('bal-valor-promocao-manual').value);
+            valorPromocao = !isNaN(vpInput) ? vpInput : null;
+
+            if (!descricao) { alert('⚠️ Descrição obrigatória!'); return; }
+            if (isNaN(valor) || valor <= 0) { alert('⚠️ Valor inválido!'); return; }
+            
+            const { error } = await supabaseBalanco.from('balanco_cadastro').insert([{ 
+                codigo: codigoStr, 
+                loja: lojaStr, 
+                descricao, 
+                valor, 
+                valor_promocao: valorPromocao 
+            }]);
+            if (error) { alert('❌ Falha ao cadastrar: ' + error.message); return; }
+        }
+
+        try {
+            const blocoVal = bloco !== '' ? bloco : null;
+            const linhaVal = linha !== '' ? linha : null;
+
+            let query = supabaseBalanco.from('balanco_estoque').select('*')
+                .eq('codigo', codigoStr)
+                .eq('loja', lojaStr)
+                .eq('tamanho', tamanho)
+                .eq('caixa_saco', caixaSaco);
+
+            if (blocoVal !== null) query = query.eq('bloco', blocoVal);
+            else query = query.is('bloco', null);
+
+            if (linhaVal !== null) query = query.eq('linha', linhaVal);
+            else query = query.is('linha', null);
+
+            let { data, error } = await query.maybeSingle();
+
+            if (error) throw error;
+
+            if (data) {
+                const novaQtd = Number(data.quantidade || 0) + quantidade;
+                const { error: e } = await supabaseBalanco.from('balanco_estoque').update({
+                    quantidade: novaQtd,
+                    descricao,
+                    valor,
+                    valor_promocao: valorPromocao,
+                    tamanho,
+                    bloco: blocoVal,
+                    linha: linhaVal,
+                    caixa_saco: caixaSaco
+                }).eq('id', data.id);
+                
+                if (e) throw e;
+                const localizacao = [
+                    blocoVal ? `Bloco: ${blocoVal}` : '',
+                    linhaVal ? `Linha: ${linhaVal}` : '',
+                    caixaSaco ? `Caixa/Saco: ${caixaSaco}` : ''
+                ].filter(Boolean).join(' | ');
+                
+                alert(`✅ +${quantidade} un. adicionadas! Total (${tamanho || 'Sem tamanho'}${localizacao ? ' | ' + localizacao : ''}): ${novaQtd}`);
+            } else {
+                const { error: e } = await supabaseBalanco.from('balanco_estoque').insert([{
+                    codigo: codigoStr,
+                    loja: lojaStr,
+                    descricao,
+                    tamanho,
+                    bloco: blocoVal,
+                    linha: linhaVal,
+                    caixa_saco: caixaSaco,
+                    quantidade,
+                    valor,
+                    valor_promocao: valorPromocao
+                }]);
+                if (e) throw e; 
+                alert(`✅ Registrado com sucesso! Quantidade lançada: ${quantidade}`);
+            }
+
+            document.getElementById('result-box-balanco').style.display = 'none';
+            document.getElementById('form-registro-balanco').style.display = 'none';
+            document.getElementById('manual-code-balanco').value = '';
+            
+            if (scannerBalanco) { try { scannerBalanco.resume(); } catch(e){} }
+            processandoLeituraBalanco = false;
+        } catch (err) {
+            console.error(err);
+            alert('❌ Falha ao registrar no estoque: ' + err.message);
+            if (scannerBalanco) { try { scannerBalanco.resume(); } catch(e){} }
+            processandoLeituraBalanco = false;
+        }
+    }
+
+    async function exportarBalancoExcel() {
+        if (!exigirLoja()) return;
+        try {
+            const { data, error } = await supabaseBalanco.from('balanco_estoque').select('*').eq('loja', String(lojaSelecionada).trim());
+            if (error) throw error;
+            if (!data?.length) { alert('Nenhum dado encontrado para esta loja.'); return; }
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Balanço');
+            XLSX.writeFile(wb, `Balanco_Estoque_Loja_${lojaSelecionada}_${new Date().toISOString().slice(0,10)}.xlsx`);
+        } catch (err) {
+            console.error(err);
+            alert('❌ Erro ao exportar: ' + err.message);
+        }
+    }
+
+    function sairDoSistema() {
+        if (confirm('Deseja realmente sair do sistema?')) {
+            lojaSelecionada = null;
+            operadorSelecionado = null;
+            loteSacoCaixaSelecionado = null;
+            if (scannerPromocao) { try { scannerPromocao.clear(); } catch(e){} }
+            if (scannerBalanco) { try { scannerBalanco.clear(); } catch(e){} }
+            location.reload();
+        }
+    }
+
+    document.getElementById('setup-loja').addEventListener('keydown', e => { if (e.key === 'Enter') confirmarSetupInicial(); });
+    document.getElementById('setup-operador').addEventListener('keydown', e => { if (e.key === 'Enter') confirmarSetupInicial(); });
+    document.getElementById('setup-lote').addEventListener('keydown', e => { if (e.key === 'Enter') confirmarSetupInicial(); });
+    document.getElementById('input-identificador').addEventListener('keydown', e => { if (e.key === 'Enter') validarLogin(); });
+    document.getElementById('input-senha').addEventListener('keydown', e => { if (e.key === 'Enter') validarLogin(); });
+    document.getElementById('manual-code-promocao').addEventListener('keydown', e => { if (e.key === 'Enter') buscarPorCodigoPromocao(e.target.value); });
+    document.getElementById('manual-code-balanco').addEventListener('keydown', e => { if (e.key === 'Enter') buscarProdutoBalanco(e.target.value); });
     </script>
 </body>
 </html>
